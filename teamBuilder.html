@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+ 
+<head>
+  <meta charset="utf-8" />
+  <script src='teamBuilder.js'></script>
+  <script src="d3.min.js"></script>
+  <style>
+  .links line {
+  stroke: #999;
+  stroke-opacity: 0.6;
+  }
+
+  .nodes circle {
+    stroke: #fff;
+    stroke-width: 1.5px;
+  }
+</style>
+</head>
+
+ 
+<body>
+  <div id='panel'>
+    <h3>Input the graphic string</h3>
+    <input id='graphContext' size="100"></input>
+    <button onclick="uploadGraph()">submit</button>
+    <div id="information"></div>
+  </div>
+  <div id='convas'>
+    <svg width="400" height="400"></svg>
+  </div>
+  <script>    
+  var infoBoard = d3.select('#information')
+  var graphVS = d3.select('#convas').select('svg')
+
+
+  var uploadGraph = function(){
+      infoBoard.selectAll('*').remove();
+      graphVS.selectAll('*').remove();
+
+      let graphContext = d3.select('#graphContext')
+                           .node()
+                           .value
+                           .split(',').map(d=>d.replace(/\D/g,''))
+      if (graphContext.every(d=>d.length===graphContext.length)) {
+         
+         let graph = new TeamBuilder(graphContext)
+         //draw force layout
+         let width = +graphVS.attr("width"),
+             height = +graphVS.attr("height");
+
+         let color = d3.scaleOrdinal(d3.schemeCategory20);
+
+
+         nodes = []
+         links = [] 
+         graph.graph.forEach((d,id)=>{
+          nodes.push({id})
+          links = [...links,...d.filter((n)=>n!==id).map((d)=>({'source':id,target:d}))]
+         })
+         
+         
+
+         let simulation = d3.forceSimulation()
+                          .force("link", d3.forceLink().id(function(d) { return d.id; }).distance(100).strength(2))
+                          .force("charge", d3.forceManyBody())
+                          .force("center", d3.forceCenter(width / 2, height / 2));
+
+         graphVS.append("defs").selectAll("marker")
+                .data(["suit", "licensing", "resolved"])
+                .enter().append("marker")
+                  .attr("id", function(d) { return d; })
+                  .attr("viewBox", "0 -5 10 10")
+                  .attr("refX", 17)
+                  .attr("refY", 0)
+                  .attr("markerWidth", 6)
+                  .attr("markerHeight", 6)
+                  .attr("orient", "auto")
+                  .append("path")
+                  .attr("d", "M0,-5L10,0L0,5 L10,0 L0, -5")
+                  .style("stroke", "#4679BD")
+                  .style("opacity", "0.6");
+
+
+
+         let link = graphVS.append("g")
+                        .attr("class", "links")
+                        .selectAll("line")
+                        .data(links)
+                        .enter().append("line")
+                        .attr("stroke-width","2")
+                        .attr('marker-end','url(#suit)');
+
+          let node = graphVS.append("g")
+              .attr("class", "nodes")
+              .selectAll("circle")
+              .data(nodes)
+              .enter()
+              .append("circle")
+              .attr("r", 8)
+              .attr("fill", function(d) { return color(d.id); })
+              .call(d3.drag()
+                  .on("start", dragstarted)
+                  .on("drag", dragged)
+                  .on("end", dragended));
+
+              
+         let label = graphVS.append('g')
+                    .attr("class", "nodeLabel")
+                    .selectAll("text")
+                    .data(nodes)
+                    .enter()
+                    .append("text")
+                    .style('textAnchor','middle')
+                    .style('dominantBaseline','middle')
+                    .text((d)=>d.id)
+
+         function dragstarted(d) {
+            if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+          }
+
+        function dragged(d) {
+          d.fx = d3.event.x;
+          d.fy = d3.event.y;
+        }
+
+        function dragended(d) {
+          if (!d3.event.active) simulation.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        }
+
+
+
+         simulation
+              .nodes(nodes)
+              .on("tick", ticked);
+
+         simulation.force("link")
+              .links(links);
+
+        function ticked() {
+            link
+                .attr("x1", function(d) { return d.source.x; })
+                .attr("y1", function(d) { return d.source.y; })
+                .attr("x2", function(d) { return d.target.x; })
+                .attr("y2", function(d) { return d.target.y; });
+
+            node
+                .attr("cx", function(d) { return d.x; })
+                .attr("cy", function(d) { return d.y; });
+            label
+                .attr("x", function(d) { return d.x; })
+                .attr("y", function(d) { return d.y; });
+
+            }
+
+
+
+
+         let specialNum = graph.specialLocations()
+
+         infoBoard.append('h4').text('{'+specialNum.join(',')+'}')
+
+      }else{
+         infoBoard.append('h4').text("The input should like:[101,110,000]")
+      }
+  }	  
+
+   
+  </script>
+  
+</body>
+ 
+</html>
